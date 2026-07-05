@@ -7,6 +7,7 @@
     <link rel="manifest" href="./manifest.json">
     <meta name="theme-color" content="#007bff">
     <style>
+        /* Gaya untuk Tampilan di Layar Komputer/HP */
         body {
             font-family: Arial, sans-serif;
             background-color: #f0f2f5;
@@ -32,26 +33,30 @@
         }
         .btn:hover { background-color: #0056b3; }
         
+        /* Area Kertas A4 */
         .page {
             width: 210mm;
             height: 297mm;
             background: white;
             margin: 0 auto;
-            padding: 10mm;
+            padding: 10mm; /* Margin aman printer */
             box-shadow: 0 0 10px rgba(0,0,0,0.1);
             box-sizing: border-box;
+            
+            /* Grid untuk menyusun 2 kolom x 5 baris */
             display: grid;
             grid-template-columns: repeat(2, 90mm);
             grid-template-rows: repeat(5, 55mm);
-            gap: 5mm;
+            gap: 5mm; /* Jarak antar foto untuk garis potong */
             justify-content: center;
             align-content: center;
         }
 
+        /* Slot Foto Ukuran Kartu Nama (9x5.5 cm) */
         .photo-slot {
             width: 90mm;
             height: 55mm;
-            border: 1px dashed #ccc;
+            border: 1px dashed #ccc; /* Garis bantu potong */
             box-sizing: border-box;
             overflow: hidden;
             display: flex;
@@ -62,9 +67,7 @@
         }
 
         .photo-slot img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
+            object-fit: cover; /* Crop proporsional */
         }
 
         .slot-hint {
@@ -73,19 +76,31 @@
             position: absolute;
         }
 
+        /* Pengaturan Khusus Saat Dicetak (Ctrl + P / PrinterShare) */
         @media print {
-            body { background: none; padding: 0; }
-            .control-panel { display: none; }
-            .page { box-shadow: none; margin: 0; page-break-after: always; }
-            .photo-slot { border: 1px dashed #000; }
+            body {
+                background: none;
+                padding: 0;
+            }
+            .control-panel {
+                display: none; /* Sembunyikan tombol upload saat cetak */
+            }
+            .page {
+                box-shadow: none;
+                margin: 0;
+                page-break-after: always;
+            }
+            .photo-slot {
+                border: 1px dashed #000; /* Garis potong terlihat jelas saat dicetak */
+            }
         }
     </style>
 </head>
 <body>
 
     <div class="control-panel">
-        <h2>Penyusun Foto Ukuran Kartu Nama (A4)</h2>
-        <p>Pilih 10 foto sekaligus. Foto akan otomatis di-crop pas 9 x 5,5 cm.</p>
+        <h2>Penyusun Foto Ukuran Kartu Nama (A4) - Versi Auto-Rotate</h2>
+        <p>Pilih hingga 10 foto sekaligus. Foto portrait akan otomatis diputar agar pas dengan layout kartu nama.</p>
         <input type="file" id="imageInput" accept="image/*" multiple style="margin-bottom: 15px;"><br>
         <button class="btn" onclick="window.print()">Cetak / Simpan ke PDF</button>
     </div>
@@ -97,6 +112,7 @@
         const printPage = document.getElementById('printPage');
         const totalSlots = 10;
 
+        // Buat slot kosong pertama kali
         function createBlankSlots() {
             printPage.innerHTML = '';
             for (let i = 0; i < totalSlots; i++) {
@@ -108,26 +124,49 @@
         }
         createBlankSlots();
 
+        // Handle Input Foto
         document.getElementById('imageInput').addEventListener('change', function(e) {
             const files = e.target.files;
-            createBlankSlots();
+            createBlankSlots(); // Reset slot ke kondisi kosong
             const slots = document.querySelectorAll('.photo-slot');
 
+            // Masukkan file foto ke dalam slot
             for (let i = 0; i < Math.min(files.length, totalSlots); i++) {
                 const reader = new FileReader();
                 reader.onload = function(event) {
-                    slots[i].innerHTML = `<img src="${event.target.result}" alt="Foto">`;
+                    const img = new Image();
+                    img.src = event.target.result;
+                    
+                    img.onload = function() {
+                        // DETEKSI OTOMATIS: Jika tinggi > lebar, berarti foto Portrait
+                        if (img.naturalHeight > img.naturalWidth) {
+                            // Putar foto 90 derajat agar menjadi Landscape
+                            img.style.transform = 'rotate(90deg)';
+                            img.style.transformOrigin = 'center';
+                            // Tukar ukuran dimensi lebar & tinggi pasca-rotasi agar tidak distorsi
+                            img.style.width = '55mm';  
+                            img.style.height = '90mm'; 
+                        } else {
+                            // Jika foto bawaannya sudah Landscape
+                            img.style.width = '100%';
+                            img.style.height = '100%';
+                        }
+                        
+                        // Bersihkan teks petunjuk slot, lalu masukkan gambarnya
+                        slots[i].innerHTML = '';
+                        slots[i].appendChild(img);
+                    };
                 };
                 reader.readAsDataURL(files[i]);
             }
         });
 
-        // SKRIP UTAMA REGISTER PWA
+        // REGISTRASI PROGRESSIVE WEB APP (PWA)
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('./sw.js')
-                .then(reg => console.log('Service Worker terdaftar!', reg))
-                .catch(err => console.log('Gagal daftar Service Worker', err));
+                .then(reg => console.log('Service Worker terdaftar sukses!', reg))
+                .catch(err => console.log('Gagal mendaftarkan Service Worker', err));
             });
         }
     </script>
