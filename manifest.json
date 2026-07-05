@@ -1,0 +1,18 @@
+{
+  "name": "Foto Kartu Nama Generator",
+  "short_name": "FotoHolder",
+  "description": "Aplikasi penyusun foto ukuran kartu nama di kertas A4 siap cetak.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#007bff",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/833/833281.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
