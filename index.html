@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generator Cetak Foto Kartu Nama (A4)</title>
+    <link rel="manifest" href="./manifest.json">
+    <meta name="theme-color" content="#007bff">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f2f5;
+            margin: 0;
+            padding: 20px;
+        }
+        .control-panel {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            max-width: 800px;
+            margin: 0 auto 20px auto;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .btn {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .btn:hover { background-color: #0056b3; }
+        
+        .page {
+            width: 210mm;
+            height: 297mm;
+            background: white;
+            margin: 0 auto;
+            padding: 10mm;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            box-sizing: border-box;
+            display: grid;
+            grid-template-columns: repeat(2, 90mm);
+            grid-template-rows: repeat(5, 55mm);
+            gap: 5mm;
+            justify-content: center;
+            align-content: center;
+        }
+
+        .photo-slot {
+            width: 90mm;
+            height: 55mm;
+            border: 1px dashed #ccc;
+            box-sizing: border-box;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #fafafa;
+            position: relative;
+        }
+
+        .photo-slot img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .slot-hint {
+            color: #aaa;
+            font-size: 12px;
+            position: absolute;
+        }
+
+        @media print {
+            body { background: none; padding: 0; }
+            .control-panel { display: none; }
+            .page { box-shadow: none; margin: 0; page-break-after: always; }
+            .photo-slot { border: 1px dashed #000; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="control-panel">
+        <h2>Penyusun Foto Ukuran Kartu Nama (A4)</h2>
+        <p>Pilih 10 foto sekaligus. Foto akan otomatis di-crop pas 9 x 5,5 cm.</p>
+        <input type="file" id="imageInput" accept="image/*" multiple style="margin-bottom: 15px;"><br>
+        <button class="btn" onclick="window.print()">Cetak / Simpan ke PDF</button>
+    </div>
+
+    <div class="page" id="printPage">
+        </div>
+
+    <script>
+        const printPage = document.getElementById('printPage');
+        const totalSlots = 10;
+
+        function createBlankSlots() {
+            printPage.innerHTML = '';
+            for (let i = 0; i < totalSlots; i++) {
+                const slot = document.createElement('div');
+                slot.className = 'photo-slot';
+                slot.innerHTML = `<span class="slot-hint">Slot Foto ${i+1}</span>`;
+                printPage.appendChild(slot);
+            }
+        }
+        createBlankSlots();
+
+        document.getElementById('imageInput').addEventListener('change', function(e) {
+            const files = e.target.files;
+            createBlankSlots();
+            const slots = document.querySelectorAll('.photo-slot');
+
+            for (let i = 0; i < Math.min(files.length, totalSlots); i++) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    slots[i].innerHTML = `<img src="${event.target.result}" alt="Foto">`;
+                };
+                reader.readAsDataURL(files[i]);
+            }
+        });
+
+        // SKRIP UTAMA REGISTER PWA
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                .then(reg => console.log('Service Worker terdaftar!', reg))
+                .catch(err => console.log('Gagal daftar Service Worker', err));
+            });
+        }
+    </script>
+</body>
+</html>
