@@ -100,6 +100,8 @@
 
         .photo-slot img {
             object-fit: cover;
+            /* Filter otomatis meningkatkan kecerahan & kontras untuk cetakan */
+            filter: brightness(1.15) contrast(1.05);
         }
 
         .slot-hint {
@@ -108,10 +110,10 @@
             position: absolute;
         }
 
-        /* PENGATURAN MELEBAR OTOMATIS SAAT DICETAK HAPUS BORDER */
+        /* Pengaturan Khusus Saat Cetak (Menghapus Border Otomatis) */
         @media print {
             @page {
-                margin: 0; /* Memaksa sistem HP iQOO menghapus margin luar */
+                margin: 0; /* Memaksa sistem HP iQOO/PrinterShare menghapus margin luar */
             }
             body { 
                 background: none; 
@@ -136,8 +138,8 @@
 <body>
 
     <div class="control-panel">
-        <h2>Penyusun Foto Kartu Nama Pro</h2>
-        <p>Atur ukuran kertas, masukkan foto, lalu cetak secara instan.</p>
+        <h2>Penyusun Foto Kartu Nama Pro (Edisi Cetak Terang)</h2>
+        <p>Atur ukuran kertas, masukkan foto, lalu cetak secara instan dengan optimasi warna cetak.</p>
         
         <div class="form-group">
             <label for="paperSize">Pilih Ukuran Kertas Cetak:</label>
@@ -168,6 +170,7 @@
         let totalSlots = 10;
         let currentFiles = [];
 
+        // Fungsi mengubah layout kanvas kertas sesuai pilihan user
         function updatePaperLayout() {
             const size = paperSizeSelect.value;
             printPage.className = 'page';
@@ -186,8 +189,10 @@
             renderSlots();
         }
 
+        // Fungsi merender slot gambar & rotasi otomatis portrait
         function renderSlots() {
             printPage.innerHTML = '';
+            
             for (let i = 0; i < totalSlots; i++) {
                 const slot = document.createElement('div');
                 slot.className = 'photo-slot';
@@ -204,6 +209,7 @@
                         img.src = event.target.result;
                         
                         img.onload = function() {
+                            // Deteksi & Rotasi Otomatis jika foto tegak (Portrait)
                             if (img.naturalHeight > img.naturalWidth) {
                                 img.style.transform = 'rotate(90deg)';
                                 img.style.transformOrigin = 'center';
@@ -214,6 +220,7 @@
                                 img.style.height = '100%';
                             }
                             img.style.objectFit = 'cover';
+                            
                             slots[i].innerHTML = '';
                             slots[i].appendChild(img);
                         };
@@ -223,14 +230,17 @@
             }
         }
 
+        // Event Listener Pemicu Perubahan
         paperSizeSelect.addEventListener('change', updatePaperLayout);
         imageInput.addEventListener('change', function(e) {
             currentFiles = Array.from(e.target.files);
             renderSlots();
         });
 
+        // Jalankan layouting pertama kali saat aplikasi dibuka
         updatePaperLayout();
 
+        // REGISTRASI SERVICE WORKER (PWA Offline)
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('./sw.js')
