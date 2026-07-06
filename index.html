@@ -47,9 +47,27 @@
             border-radius: 5px;
             cursor: pointer;
             margin-top: 10px;
+            width: 100%;
         }
         .btn:hover { background-color: #0056b3; }
         
+        /* Tombol Melayang untuk Kembali dari Mode Cetak */
+        .btn-floating {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            font-size: 14px;
+            border-radius: 20px;
+            cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+            z-index: 9999;
+            display: none; /* Tersembunyi di awal */
+        }
+
         /* Base Gaya Kertas */
         .page {
             background: white;
@@ -88,7 +106,7 @@
         .photo-slot {
             width: 90mm;
             height: 55mm;
-            border: 1px dashed #ccc;
+            border: 1px dashed #000; /* Dibuat hitam agar langsung terlihat garis potongnya */
             box-sizing: border-box;
             overflow: hidden;
             display: flex;
@@ -100,7 +118,6 @@
 
         .photo-slot img {
             object-fit: cover;
-            /* Filter otomatis meningkatkan kecerahan & kontras untuk cetakan */
             filter: brightness(1.15) contrast(1.05);
         }
 
@@ -110,36 +127,31 @@
             position: absolute;
         }
 
-        /* Pengaturan Khusus Saat Cetak (Menghapus Border Otomatis) */
+        /* Kelas Pembantu untuk Menyembunyikan Menu Saat Mode Cetak Aktif */
+        .hide-for-print {
+            display: none !important;
+        }
+        .no-padding {
+            padding: 0 !important;
+            background: none !important;
+        }
+
+        /* Aturan Cetak Standar untuk Browser */
         @media print {
-            @page {
-                margin: 0; /* Memaksa sistem HP iQOO/PrinterShare menghapus margin luar */
-            }
-            body { 
-                background: none; 
-                padding: 0; 
-                margin: 0;
-            }
-            .control-panel { 
-                display: none; 
-            }
-            .page { 
-                box-shadow: none; 
-                margin: 0 auto; 
-                page-break-after: always;
-                padding: 8mm; /* Padding internal untuk kompensasi batas fisik printer */
-            }
-            .photo-slot { 
-                border: 1px dashed #000; 
-            }
+            @page { margin: 0; }
+            body { background: none; padding: 0; margin: 0; }
+            .control-panel, .btn-floating { display: none !important; }
+            .page { box-shadow: none; margin: 0 auto; page-break-after: always; padding: 8mm; }
         }
     </style>
 </head>
 <body>
 
-    <div class="control-panel">
-        <h2>Penyusun Foto Kartu Nama Pro (Edisi Cetak Terang)</h2>
-        <p>Atur ukuran kertas, masukkan foto, lalu cetak secara instan dengan optimasi warna cetak.</p>
+    <button id="btnReturn" class="btn-floating" onclick="exitPrintMode()">← Kembali Edit</button>
+
+    <div class="control-panel" id="controlPanel">
+        <h2>Penyusun Foto Kartu Nama Pro</h2>
+        <p>Atur ukuran kertas, masukkan foto, lalu masuk ke mode siap cetak.</p>
         
         <div class="form-group">
             <label for="paperSize">Pilih Ukuran Kertas Cetak:</label>
@@ -155,7 +167,8 @@
             <input type="file" id="imageInput" accept="image/*" multiple>
         </div>
         
-        <button class="btn" onclick="window.print()">Cetak / Simpan ke PDF</button>
+        <button class="btn" style="background-color: #28a745;" onclick="enterPrintMode()">1. Sembunyikan Menu & Siapkan Cetak</button>
+        <p style="font-size: 12px; color: #666; margin-top: 5px;">*Gunakan tombol di atas jika Anda mencetak lewat menu "Bagikan" di HP agar menu ini tidak ikut tercetak.</p>
     </div>
 
     <div id="pageContainer">
@@ -166,11 +179,27 @@
         const printPage = document.getElementById('printPage');
         const paperSizeSelect = document.getElementById('paperSize');
         const imageInput = document.getElementById('imageInput');
+        const controlPanel = document.getElementById('controlPanel');
+        const btnReturn = document.getElementById('btnReturn');
         
         let totalSlots = 10;
         let currentFiles = [];
 
-        // Fungsi mengubah layout kanvas kertas sesuai pilihan user
+        // Fungsi Masuk Mode Cetak (Menghilangkan semua UI menu di layar)
+        function enterPrintMode() {
+            controlPanel.classList.add('hide-for-print');
+            document.body.classList.add('no-padding');
+            btnReturn.style.display = 'block'; // Tampilkan tombol kembali melayang
+            window.scrollTo(0,0);
+        }
+
+        // Fungsi Keluar Mode Cetak (Mengembalikan menu utama)
+        function exitPrintMode() {
+            controlPanel.classList.remove('hide-for-print');
+            document.body.classList.remove('no-padding');
+            btnReturn.style.display = 'none'; // Sembunyikan kembali
+        }
+
         function updatePaperLayout() {
             const size = paperSizeSelect.value;
             printPage.className = 'page';
@@ -189,10 +218,8 @@
             renderSlots();
         }
 
-        // Fungsi merender slot gambar & rotasi otomatis portrait
         function renderSlots() {
             printPage.innerHTML = '';
-            
             for (let i = 0; i < totalSlots; i++) {
                 const slot = document.createElement('div');
                 slot.className = 'photo-slot';
@@ -209,7 +236,6 @@
                         img.src = event.target.result;
                         
                         img.onload = function() {
-                            // Deteksi & Rotasi Otomatis jika foto tegak (Portrait)
                             if (img.naturalHeight > img.naturalWidth) {
                                 img.style.transform = 'rotate(90deg)';
                                 img.style.transformOrigin = 'center';
@@ -220,7 +246,6 @@
                                 img.style.height = '100%';
                             }
                             img.style.objectFit = 'cover';
-                            
                             slots[i].innerHTML = '';
                             slots[i].appendChild(img);
                         };
@@ -230,22 +255,17 @@
             }
         }
 
-        // Event Listener Pemicu Perubahan
         paperSizeSelect.addEventListener('change', updatePaperLayout);
         imageInput.addEventListener('change', function(e) {
             currentFiles = Array.from(e.target.files);
             renderSlots();
         });
 
-        // Jalankan layouting pertama kali saat aplikasi dibuka
         updatePaperLayout();
 
-        // REGISTRASI SERVICE WORKER (PWA Offline)
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js')
-                .then(reg => console.log('Service Worker aktif!'))
-                .catch(err => console.log('Gagal SW', err));
+                navigator.serviceWorker.register('./sw.js').catch(err => console.log(err));
             });
         }
     </script>
