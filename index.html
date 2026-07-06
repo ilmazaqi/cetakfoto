@@ -88,7 +88,7 @@
         .photo-slot {
             width: 90mm;
             height: 55mm;
-            border: 1px dashed #ccc; /* Panduan potong */
+            border: 1px dashed #ccc;
             box-sizing: border-box;
             overflow: hidden;
             display: flex;
@@ -108,12 +108,28 @@
             position: absolute;
         }
 
-        /* Pengaturan Khusus Saat Cetak (Ctrl + P / PrinterShare) */
+        /* PENGATURAN MELEBAR OTOMATIS SAAT DICETAK HAPUS BORDER */
         @media print {
-            body { background: none; padding: 0; }
-            .control-panel { display: none; }
-            .page { box-shadow: none; margin: 0; page-break-after: always; }
-            .photo-slot { border: 1px dashed #000; }
+            @page {
+                margin: 0; /* Memaksa sistem HP iQOO menghapus margin luar */
+            }
+            body { 
+                background: none; 
+                padding: 0; 
+                margin: 0;
+            }
+            .control-panel { 
+                display: none; 
+            }
+            .page { 
+                box-shadow: none; 
+                margin: 0 auto; 
+                page-break-after: always;
+                padding: 8mm; /* Padding internal untuk kompensasi batas fisik printer */
+            }
+            .photo-slot { 
+                border: 1px dashed #000; 
+            }
         }
     </style>
 </head>
@@ -152,10 +168,9 @@
         let totalSlots = 10;
         let currentFiles = [];
 
-        // Fungsi mengubah layout kanvas kertas sesuai pilihan user
         function updatePaperLayout() {
             const size = paperSizeSelect.value;
-            printPage.className = 'page'; // Reset class dasar
+            printPage.className = 'page';
             
             if (size === 'a4') {
                 printPage.classList.add('page-a4');
@@ -165,17 +180,14 @@
                 totalSlots = 10;
             } else if (size === '4r') {
                 printPage.classList.add('page-4r');
-                totalSlots = 2; // Batasan kertas 4R hanya muat 2 lembar kartu nama
+                totalSlots = 2;
             }
             
             renderSlots();
         }
 
-        // Fungsi merender slot gambar & melakukan kalkulasi rotasi otomatis
         function renderSlots() {
             printPage.innerHTML = '';
-            
-            // Buat slot kosong sesuai kapasitas kertas
             for (let i = 0; i < totalSlots; i++) {
                 const slot = document.createElement('div');
                 slot.className = 'photo-slot';
@@ -183,7 +195,6 @@
                 printPage.appendChild(slot);
             }
 
-            // Jika ada foto yang sudah dipilih, masukkan ke slot tersedia
             if (currentFiles.length > 0) {
                 const slots = document.querySelectorAll('.photo-slot');
                 for (let i = 0; i < Math.min(currentFiles.length, totalSlots); i++) {
@@ -193,7 +204,6 @@
                         img.src = event.target.result;
                         
                         img.onload = function() {
-                            // Deteksi & Rotasi Otomatis jika foto tegak (Portrait)
                             if (img.naturalHeight > img.naturalWidth) {
                                 img.style.transform = 'rotate(90deg)';
                                 img.style.transformOrigin = 'center';
@@ -204,7 +214,6 @@
                                 img.style.height = '100%';
                             }
                             img.style.objectFit = 'cover';
-                            
                             slots[i].innerHTML = '';
                             slots[i].appendChild(img);
                         };
@@ -214,22 +223,19 @@
             }
         }
 
-        // Event Listener Pemicu Perubahan
         paperSizeSelect.addEventListener('change', updatePaperLayout);
         imageInput.addEventListener('change', function(e) {
             currentFiles = Array.from(e.target.files);
             renderSlots();
         });
 
-        // Jalankan layouting pertama kali saat aplikasi dibuka
         updatePaperLayout();
 
-        // REGISTRASI PROGRESSIVE WEB APP (PWA)
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('./sw.js')
-                .then(reg => console.log('Service Worker aktif!', reg))
-                .catch(err => console.log('Gagal memuat Service Worker', err));
+                .then(reg => console.log('Service Worker aktif!'))
+                .catch(err => console.log('Gagal SW', err));
             });
         }
     </script>
