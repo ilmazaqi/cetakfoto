@@ -6,8 +6,10 @@
     <title>Generator Cetak Foto Kartu Nama (Multi-Ukuran)</title>
     <link rel="manifest" href="./manifest.json">
     <meta name="theme-color" content="#007bff">
+    <!-- Memanggil Library html2pdf.js untuk membuat PDF Instan -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    
     <style>
-        /* Gaya untuk Tampilan di Layar Komputer/HP */
         body {
             font-family: Arial, sans-serif;
             background-color: #f0f2f5;
@@ -39,40 +41,23 @@
             font-size: 14px;
         }
         .btn {
-            background-color: #007bff;
+            background-color: #28a745; /* Warna hijau sukses */
             color: white;
             border: none;
-            padding: 10px 20px;
+            padding: 12px 20px;
             font-size: 16px;
             border-radius: 5px;
             cursor: pointer;
             margin-top: 10px;
             width: 100%;
+            font-weight: bold;
         }
-        .btn:hover { background-color: #0056b3; }
+        .btn:hover { background-color: #218838; }
         
-        /* Tombol Melayang untuk Kembali dari Mode Cetak */
-        .btn-floating {
-            position: fixed;
-            top: 10px;
-            left: 10px;
-            background-color: #dc3545;
-            color: white;
-            border: none;
-            padding: 8px 15px;
-            font-size: 14px;
-            border-radius: 20px;
-            cursor: pointer;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
-            z-index: 9999;
-            display: none; /* Tersembunyi di awal */
-        }
-
         /* Base Gaya Kertas */
         .page {
             background: white;
-            margin: 0 auto 20px auto;
-            padding: 10mm;
+            margin: 0 auto;
             box-shadow: 0 0 10px rgba(0,0,0,0.1);
             box-sizing: border-box;
             display: grid;
@@ -81,16 +66,18 @@
             gap: 5mm;
         }
 
-        /* Variasi Ukuran Kertas via CSS Grid */
+        /* Variasi Ukuran Kertas via CSS Grid (Sesuai Standar Cetak) */
         .page-a4 {
             width: 210mm;
             height: 297mm;
+            padding: 10mm;
             grid-template-columns: repeat(2, 90mm);
             grid-template-rows: repeat(5, 55mm);
         }
         .page-f4 {
             width: 215mm;
             height: 330mm;
+            padding: 10mm;
             grid-template-columns: repeat(2, 90mm);
             grid-template-rows: repeat(5, 55mm);
         }
@@ -106,7 +93,7 @@
         .photo-slot {
             width: 90mm;
             height: 55mm;
-            border: 1px dashed #000; /* Dibuat hitam agar langsung terlihat garis potongnya */
+            border: 1px dashed #000; /* Garis potong hitam tegas */
             box-sizing: border-box;
             overflow: hidden;
             display: flex;
@@ -118,7 +105,7 @@
 
         .photo-slot img {
             object-fit: cover;
-            filter: brightness(1.15) contrast(1.05);
+            filter: brightness(1.15) contrast(1.05); /* Auto-brighten agar hasil CMYK cerah */
         }
 
         .slot-hint {
@@ -126,32 +113,14 @@
             font-size: 12px;
             position: absolute;
         }
-
-        /* Kelas Pembantu untuk Menyembunyikan Menu Saat Mode Cetak Aktif */
-        .hide-for-print {
-            display: none !important;
-        }
-        .no-padding {
-            padding: 0 !important;
-            background: none !important;
-        }
-
-        /* Aturan Cetak Standar untuk Browser */
-        @media print {
-            @page { margin: 0; }
-            body { background: none; padding: 0; margin: 0; }
-            .control-panel, .btn-floating { display: none !important; }
-            .page { box-shadow: none; margin: 0 auto; page-break-after: always; padding: 8mm; }
-        }
     </style>
 </head>
 <body>
 
-    <button id="btnReturn" class="btn-floating" onclick="exitPrintMode()">← Kembali Edit</button>
-
-    <div class="control-panel" id="controlPanel">
+    <!-- Panel Kontrol -->
+    <div class="control-panel">
         <h2>Penyusun Foto Kartu Nama Pro</h2>
-        <p>Atur ukuran kertas, masukkan foto, lalu masuk ke mode siap cetak.</p>
+        <p>Atur ukuran kertas, masukkan foto, lalu unduh sebagai file PDF siap cetak.</p>
         
         <div class="form-group">
             <label for="paperSize">Pilih Ukuran Kertas Cetak:</label>
@@ -167,10 +136,11 @@
             <input type="file" id="imageInput" accept="image/*" multiple>
         </div>
         
-        <button class="btn" style="background-color: #28a745;" onclick="enterPrintMode()">1. Sembunyikan Menu & Siapkan Cetak</button>
-        <p style="font-size: 12px; color: #666; margin-top: 5px;">*Gunakan tombol di atas jika Anda mencetak lewat menu "Bagikan" di HP agar menu ini tidak ikut tercetak.</p>
+        <!-- Tombol Baru untuk Generate PDF Instan -->
+        <button class="btn" onclick="downloadPDF()">Simpan & Unduh File PDF</button>
     </div>
 
+    <!-- Area Kertas Cetak -->
     <div id="pageContainer">
         <div class="page page-a4" id="printPage"></div>
     </div>
@@ -179,26 +149,9 @@
         const printPage = document.getElementById('printPage');
         const paperSizeSelect = document.getElementById('paperSize');
         const imageInput = document.getElementById('imageInput');
-        const controlPanel = document.getElementById('controlPanel');
-        const btnReturn = document.getElementById('btnReturn');
         
         let totalSlots = 10;
         let currentFiles = [];
-
-        // Fungsi Masuk Mode Cetak (Menghilangkan semua UI menu di layar)
-        function enterPrintMode() {
-            controlPanel.classList.add('hide-for-print');
-            document.body.classList.add('no-padding');
-            btnReturn.style.display = 'block'; // Tampilkan tombol kembali melayang
-            window.scrollTo(0,0);
-        }
-
-        // Fungsi Keluar Mode Cetak (Mengembalikan menu utama)
-        function exitPrintMode() {
-            controlPanel.classList.remove('hide-for-print');
-            document.body.classList.remove('no-padding');
-            btnReturn.style.display = 'none'; // Sembunyikan kembali
-        }
 
         function updatePaperLayout() {
             const size = paperSizeSelect.value;
@@ -253,6 +206,21 @@
                     reader.readAsDataURL(currentFiles[i]);
                 }
             }
+        }
+
+        // FUNGSI UTAMA GENERATOR PDF (MENCEGAH POP-UP CETAK HP)
+        function downloadPDF() {
+            const size = paperSizeSelect.value;
+            let opt = {
+                margin:       0,
+                filename:     `cetak_foto_${size}_${Date.now()}.pdf`,
+                image:        { type: 'jpeg', quality: 1.0 }, // Kualitas foto tertinggi
+                html2canvas:  { scale: 3, useCORS: true },    // Merender ke resolusi tajam (300 DPI)
+                jsPDF:        { unit: 'mm', format: size === 'f4' ? [215, 330] : size, orientation: 'portrait' }
+            };
+
+            // Jalankan konversi HTML ke PDF dan otomatis unduh
+            html2pdf().set(opt).from(printPage).save();
         }
 
         paperSizeSelect.addEventListener('change', updatePaperLayout);
