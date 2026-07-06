@@ -6,6 +6,8 @@
     <title>Generator Cetak Foto Kartu Nama (Multi-Ukuran)</title>
     <link rel="manifest" href="./manifest.json">
     <meta name="theme-color" content="#007bff">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    
     <style>
         /* Gaya untuk Tampilan di Layar Komputer/HP */
         body {
@@ -42,19 +44,20 @@
             background-color: #007bff;
             color: white;
             border: none;
-            padding: 10px 20px;
+            padding: 12px 20px;
             font-size: 16px;
             border-radius: 5px;
             cursor: pointer;
             margin-top: 10px;
+            width: 100%;
+            font-weight: bold;
         }
         .btn:hover { background-color: #0056b3; }
         
         /* Base Gaya Kertas */
         .page {
             background: white;
-            margin: 0 auto 20px auto;
-            padding: 10mm;
+            margin: 0 auto;
             box-shadow: 0 0 10px rgba(0,0,0,0.1);
             box-sizing: border-box;
             display: grid;
@@ -67,12 +70,14 @@
         .page-a4 {
             width: 210mm;
             height: 297mm;
+            padding: 10mm;
             grid-template-columns: repeat(2, 90mm);
             grid-template-rows: repeat(5, 55mm);
         }
         .page-f4 {
             width: 215mm;
             height: 330mm;
+            padding: 10mm;
             grid-template-columns: repeat(2, 90mm);
             grid-template-rows: repeat(5, 55mm);
         }
@@ -88,7 +93,7 @@
         .photo-slot {
             width: 90mm;
             height: 55mm;
-            border: 1px dashed #ccc;
+            border: 1px dashed #000;
             box-sizing: border-box;
             overflow: hidden;
             display: flex;
@@ -100,8 +105,8 @@
 
         .photo-slot img {
             object-fit: cover;
-            /* Filter otomatis meningkatkan kecerahan & kontras untuk cetakan */
-            filter: brightness(1.15) contrast(1.05);
+            /* Kontras dikembalikan normal (1.0) agar bagian gelap tidak hitam pekat */
+            filter: brightness(1.25) contrast(1.0);
         }
 
         .slot-hint {
@@ -110,10 +115,10 @@
             position: absolute;
         }
 
-        /* Pengaturan Khusus Saat Cetak (Menghapus Border Otomatis) */
+        /* Pengaturan Khusus Saat Cetak Manual */
         @media print {
             @page {
-                margin: 0; /* Memaksa sistem HP iQOO/PrinterShare menghapus margin luar */
+                margin: 0;
             }
             body { 
                 background: none; 
@@ -127,7 +132,7 @@
                 box-shadow: none; 
                 margin: 0 auto; 
                 page-break-after: always;
-                padding: 8mm; /* Padding internal untuk kompensasi batas fisik printer */
+                padding: 8mm;
             }
             .photo-slot { 
                 border: 1px dashed #000; 
@@ -138,8 +143,8 @@
 <body>
 
     <div class="control-panel">
-        <h2>Penyusun Foto Kartu Nama Pro (Edisi Cetak Terang)</h2>
-        <p>Atur ukuran kertas, masukkan foto, lalu cetak secara instan dengan optimasi warna cetak.</p>
+        <h2>Penyusun Foto Kartu Nama Pro (Kontras Normal)</h2>
+        <p>1. Pilih ukuran kertas.<br>2. Masukkan foto Anda. Gambar akan otomatis diterangkan tanpa membuat area gelap menjadi hitam pekat, lalu otomatis terunduh sebagai PDF.</p>
         
         <div class="form-group">
             <label for="paperSize">Pilih Ukuran Kertas Cetak:</label>
@@ -155,7 +160,7 @@
             <input type="file" id="imageInput" accept="image/*" multiple>
         </div>
         
-        <button class="btn" onclick="window.print()">Cetak / Simpan ke PDF</button>
+        <button class="btn" onclick="downloadPDF()">Download PDF Manual</button>
     </div>
 
     <div id="pageContainer">
@@ -170,7 +175,6 @@
         let totalSlots = 10;
         let currentFiles = [];
 
-        // Fungsi mengubah layout kanvas kertas sesuai pilihan user
         function updatePaperLayout() {
             const size = paperSizeSelect.value;
             printPage.className = 'page';
@@ -189,10 +193,8 @@
             renderSlots();
         }
 
-        // Fungsi merender slot gambar & rotasi otomatis portrait
         function renderSlots() {
             printPage.innerHTML = '';
-            
             for (let i = 0; i < totalSlots; i++) {
                 const slot = document.createElement('div');
                 slot.className = 'photo-slot';
@@ -202,14 +204,16 @@
 
             if (currentFiles.length > 0) {
                 const slots = document.querySelectorAll('.photo-slot');
-                for (let i = 0; i < Math.min(currentFiles.length, totalSlots); i++) {
+                let loadedCount = 0;
+                const targetLoadCount = Math.min(currentFiles.length, totalSlots);
+
+                for (let i = 0; i < targetLoadCount; i++) {
                     const reader = new FileReader();
                     reader.onload = function(event) {
                         const img = new Image();
                         img.src = event.target.result;
                         
                         img.onload = function() {
-                            // Deteksi & Rotasi Otomatis jika foto tegak (Portrait)
                             if (img.naturalHeight > img.naturalWidth) {
                                 img.style.transform = 'rotate(90deg)';
                                 img.style.transformOrigin = 'center';
@@ -220,9 +224,14 @@
                                 img.style.height = '100%';
                             }
                             img.style.objectFit = 'cover';
-                            
                             slots[i].innerHTML = '';
                             slots[i].appendChild(img);
+                            
+                            loadedCount++;
+                            
+                            if (loadedCount === targetLoadCount) {
+                                setTimeout(downloadPDF, 600);
+                            }
                         };
                     };
                     reader.readAsDataURL(currentFiles[i]);
@@ -230,22 +239,30 @@
             }
         }
 
-        // Event Listener Pemicu Perubahan
+        function downloadPDF() {
+            const size = paperSizeSelect.value;
+            let opt = {
+                margin:       0,
+                filename:     `cetak_foto_normal_${size}_${Date.now()}.pdf`,
+                image:        { type: 'jpeg', quality: 1.0 },
+                html2canvas:  { scale: 3, useCORS: true }, 
+                jsPDF:        { unit: 'mm', format: size === 'f4' ? [215, 330] : size, orientation: 'portrait' }
+            };
+
+            html2pdf().set(opt).from(printPage).save();
+        }
+
         paperSizeSelect.addEventListener('change', updatePaperLayout);
         imageInput.addEventListener('change', function(e) {
             currentFiles = Array.from(e.target.files);
             renderSlots();
         });
 
-        // Jalankan layouting pertama kali saat aplikasi dibuka
         updatePaperLayout();
 
-        // REGISTRASI SERVICE WORKER (PWA Offline)
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js')
-                .then(reg => console.log('Service Worker aktif!'))
-                .catch(err => console.log('Gagal SW', err));
+                navigator.serviceWorker.register('./sw.js').catch(err => console.log(err));
             });
         }
     </script>
