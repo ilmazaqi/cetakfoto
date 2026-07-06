@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Generator Cetak Foto Kartu Nama (A4)</title>
+    <title>Generator Cetak Foto Kartu Nama (Multi-Ukuran)</title>
     <link rel="manifest" href="./manifest.json">
     <meta name="theme-color" content="#007bff">
     <style>
@@ -22,6 +22,22 @@
             margin: 0 auto 20px auto;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        select, input[type="file"] {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-size: 14px;
+        }
         .btn {
             background-color: #007bff;
             color: white;
@@ -30,33 +46,49 @@
             font-size: 16px;
             border-radius: 5px;
             cursor: pointer;
+            margin-top: 10px;
         }
         .btn:hover { background-color: #0056b3; }
         
-        /* Area Kertas A4 */
+        /* Base Gaya Kertas */
         .page {
-            width: 210mm;
-            height: 297mm;
             background: white;
-            margin: 0 auto;
-            padding: 10mm; /* Margin aman printer */
+            margin: 0 auto 20px auto;
+            padding: 10mm;
             box-shadow: 0 0 10px rgba(0,0,0,0.1);
             box-sizing: border-box;
-            
-            /* Grid untuk menyusun 2 kolom x 5 baris */
             display: grid;
-            grid-template-columns: repeat(2, 90mm);
-            grid-template-rows: repeat(5, 55mm);
-            gap: 5mm; /* Jarak antar foto untuk garis potong */
             justify-content: center;
             align-content: center;
+            gap: 5mm;
+        }
+
+        /* Variasi Ukuran Kertas via CSS Grid */
+        .page-a4 {
+            width: 210mm;
+            height: 297mm;
+            grid-template-columns: repeat(2, 90mm);
+            grid-template-rows: repeat(5, 55mm);
+        }
+        .page-f4 {
+            width: 215mm;
+            height: 330mm;
+            grid-template-columns: repeat(2, 90mm);
+            grid-template-rows: repeat(5, 55mm);
+        }
+        .page-4r {
+            width: 102mm;
+            height: 152mm;
+            padding: 5mm;
+            grid-template-columns: repeat(1, 90mm);
+            grid-template-rows: repeat(2, 55mm);
         }
 
         /* Slot Foto Ukuran Kartu Nama (9x5.5 cm) */
         .photo-slot {
             width: 90mm;
             height: 55mm;
-            border: 1px dashed #ccc; /* Garis bantu potong */
+            border: 1px dashed #ccc; /* Panduan potong */
             box-sizing: border-box;
             overflow: hidden;
             display: flex;
@@ -67,7 +99,7 @@
         }
 
         .photo-slot img {
-            object-fit: cover; /* Crop proporsional */
+            object-fit: cover;
         }
 
         .slot-hint {
@@ -76,97 +108,128 @@
             position: absolute;
         }
 
-        /* Pengaturan Khusus Saat Dicetak (Ctrl + P / PrinterShare) */
+        /* Pengaturan Khusus Saat Cetak (Ctrl + P / PrinterShare) */
         @media print {
-            body {
-                background: none;
-                padding: 0;
-            }
-            .control-panel {
-                display: none; /* Sembunyikan tombol upload saat cetak */
-            }
-            .page {
-                box-shadow: none;
-                margin: 0;
-                page-break-after: always;
-            }
-            .photo-slot {
-                border: 1px dashed #000; /* Garis potong terlihat jelas saat dicetak */
-            }
+            body { background: none; padding: 0; }
+            .control-panel { display: none; }
+            .page { box-shadow: none; margin: 0; page-break-after: always; }
+            .photo-slot { border: 1px dashed #000; }
         }
     </style>
 </head>
 <body>
 
     <div class="control-panel">
-        <h2>Penyusun Foto Ukuran Kartu Nama (A4) - Versi Auto-Rotate</h2>
-        <p>Pilih hingga 10 foto sekaligus. Foto portrait akan otomatis diputar agar pas dengan layout kartu nama.</p>
-        <input type="file" id="imageInput" accept="image/*" multiple style="margin-bottom: 15px;"><br>
+        <h2>Penyusun Foto Kartu Nama Pro</h2>
+        <p>Atur ukuran kertas, masukkan foto, lalu cetak secara instan.</p>
+        
+        <div class="form-group">
+            <label for="paperSize">Pilih Ukuran Kertas Cetak:</label>
+            <select id="paperSize">
+                <option value="a4">A4 (210 x 297 mm) - Maks 10 Foto</option>
+                <option value="f4">F4 / Folio (215 x 330 mm) - Maks 10 Foto</option>
+                <option value="4r">4R / Foto Studio (102 x 152 mm) - Maks 2 Foto</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="imageInput">Pilih Berkas Foto Anda:</label>
+            <input type="file" id="imageInput" accept="image/*" multiple>
+        </div>
+        
         <button class="btn" onclick="window.print()">Cetak / Simpan ke PDF</button>
     </div>
 
-    <div class="page" id="printPage">
-        </div>
+    <div id="pageContainer">
+        <div class="page page-a4" id="printPage"></div>
+    </div>
 
     <script>
         const printPage = document.getElementById('printPage');
-        const totalSlots = 10;
+        const paperSizeSelect = document.getElementById('paperSize');
+        const imageInput = document.getElementById('imageInput');
+        
+        let totalSlots = 10;
+        let currentFiles = [];
 
-        // Buat slot kosong pertama kali
-        function createBlankSlots() {
+        // Fungsi mengubah layout kanvas kertas sesuai pilihan user
+        function updatePaperLayout() {
+            const size = paperSizeSelect.value;
+            printPage.className = 'page'; // Reset class dasar
+            
+            if (size === 'a4') {
+                printPage.classList.add('page-a4');
+                totalSlots = 10;
+            } else if (size === 'f4') {
+                printPage.classList.add('page-f4');
+                totalSlots = 10;
+            } else if (size === '4r') {
+                printPage.classList.add('page-4r');
+                totalSlots = 2; // Batasan kertas 4R hanya muat 2 lembar kartu nama
+            }
+            
+            renderSlots();
+        }
+
+        // Fungsi merender slot gambar & melakukan kalkulasi rotasi otomatis
+        function renderSlots() {
             printPage.innerHTML = '';
+            
+            // Buat slot kosong sesuai kapasitas kertas
             for (let i = 0; i < totalSlots; i++) {
                 const slot = document.createElement('div');
                 slot.className = 'photo-slot';
                 slot.innerHTML = `<span class="slot-hint">Slot Foto ${i+1}</span>`;
                 printPage.appendChild(slot);
             }
-        }
-        createBlankSlots();
 
-        // Handle Input Foto
-        document.getElementById('imageInput').addEventListener('change', function(e) {
-            const files = e.target.files;
-            createBlankSlots(); // Reset slot ke kondisi kosong
-            const slots = document.querySelectorAll('.photo-slot');
-
-            // Masukkan file foto ke dalam slot
-            for (let i = 0; i < Math.min(files.length, totalSlots); i++) {
-                const reader = new FileReader();
-                reader.onload = function(event) {
-                    const img = new Image();
-                    img.src = event.target.result;
-                    
-                    img.onload = function() {
-                        // DETEKSI OTOMATIS: Jika tinggi > lebar, berarti foto Portrait
-                        if (img.naturalHeight > img.naturalWidth) {
-                            // Putar foto 90 derajat agar menjadi Landscape
-                            img.style.transform = 'rotate(90deg)';
-                            img.style.transformOrigin = 'center';
-                            // Tukar ukuran dimensi lebar & tinggi pasca-rotasi agar tidak distorsi
-                            img.style.width = '55mm';  
-                            img.style.height = '90mm'; 
-                        } else {
-                            // Jika foto bawaannya sudah Landscape
-                            img.style.width = '100%';
-                            img.style.height = '100%';
-                        }
+            // Jika ada foto yang sudah dipilih, masukkan ke slot tersedia
+            if (currentFiles.length > 0) {
+                const slots = document.querySelectorAll('.photo-slot');
+                for (let i = 0; i < Math.min(currentFiles.length, totalSlots); i++) {
+                    const reader = new FileReader();
+                    reader.onload = function(event) {
+                        const img = new Image();
+                        img.src = event.target.result;
                         
-                        // Bersihkan teks petunjuk slot, lalu masukkan gambarnya
-                        slots[i].innerHTML = '';
-                        slots[i].appendChild(img);
+                        img.onload = function() {
+                            // Deteksi & Rotasi Otomatis jika foto tegak (Portrait)
+                            if (img.naturalHeight > img.naturalWidth) {
+                                img.style.transform = 'rotate(90deg)';
+                                img.style.transformOrigin = 'center';
+                                img.style.width = '55mm';  
+                                img.style.height = '90mm'; 
+                            } else {
+                                img.style.width = '100%';
+                                img.style.height = '100%';
+                            }
+                            img.style.objectFit = 'cover';
+                            
+                            slots[i].innerHTML = '';
+                            slots[i].appendChild(img);
+                        };
                     };
-                };
-                reader.readAsDataURL(files[i]);
+                    reader.readAsDataURL(currentFiles[i]);
+                }
             }
+        }
+
+        // Event Listener Pemicu Perubahan
+        paperSizeSelect.addEventListener('change', updatePaperLayout);
+        imageInput.addEventListener('change', function(e) {
+            currentFiles = Array.from(e.target.files);
+            renderSlots();
         });
+
+        // Jalankan layouting pertama kali saat aplikasi dibuka
+        updatePaperLayout();
 
         // REGISTRASI PROGRESSIVE WEB APP (PWA)
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('./sw.js')
-                .then(reg => console.log('Service Worker terdaftar sukses!', reg))
-                .catch(err => console.log('Gagal mendaftarkan Service Worker', err));
+                .then(reg => console.log('Service Worker aktif!', reg))
+                .catch(err => console.log('Gagal memuat Service Worker', err));
             });
         }
     </script>
